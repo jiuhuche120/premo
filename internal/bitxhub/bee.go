@@ -353,12 +353,8 @@ func (bee *bee) sendInterchainTx(i uint64, ibtpNo uint64) error {
 		Extra:     bee.config.Proof,
 	}
 
-	//if err := tx.Sign(bee.xprivKey); err != nil {
-	//	return err
-	//}
-
 	_, err = bee.client.SendTransaction(tx, &rpcx.TransactOpts{
-		From:      fmt.Sprintf("%s-%s-%d", ibtp.From, ibtp.To, ibtp.Type),
+		From:      fmt.Sprintf("%s-%s-%d", ibtp.From, ibtp.To, ibtp.Category()),
 		IBTPNonce: ibtpNo,
 	})
 	if err != nil {
