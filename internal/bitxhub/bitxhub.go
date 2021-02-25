@@ -110,6 +110,13 @@ func New(config *Config) (*Broker, error) {
 				}
 			}
 
+			if config.Type == "did" {
+				if err := bee.prepareDID(config.Appchain, config.Validator); err != nil {
+					logger.Warn("prepare DID err: ", err)
+					// return
+				}
+			}
+
 			bees = append(bees, bee)
 		}()
 	}

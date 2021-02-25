@@ -19,6 +19,7 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+var didcounter int64
 var counter int64
 var sender int64
 var delayer int64
@@ -130,6 +131,10 @@ func (bee *bee) sendTx(typ string, count, ibtpNo, normalNo uint64) error {
 		}
 	case "data":
 		if err := bee.sendBVMTx(normalNo); err != nil {
+			return err
+		}
+	case "did":
+		if err := bee.sendMethodTx("Apply", normalNo); err != nil {
 			return err
 		}
 	case "transfer":
@@ -255,6 +260,126 @@ func (bee *bee) prepareChain(chainType, name, validators, version, desc string, 
 	return nil
 }
 
+func (bee *bee) prepareDID(chainType, validators string) error {
+	adminDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.adminFrom)
+	// normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
+
+	// docAddr := "/ipfs/QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi"
+	// docHash := []byte("QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi")
+
+	// normalMethod := "did:bitxhub:appchain001:."
+	rootMethod := "did:bitxhub:relayroot:."
+	childMethod := "did:bitxhub:relaychain001:."
+
+	// relayrootID := bee.RegisterAppchainWithReturn(bee.adminPrivKey, "relayroot", validators)
+	relayrootID := ""
+	relayAppID := "0x32a07E5dC7715Fc40A54e58DE0CE5303561517ad"
+	_ = relayrootID
+	_ = adminDID
+	_ = rootMethod
+	_ = childMethod
+	_ = relayAppID
+
+	// pubBytes, _ := bee.adminPrivKey.PublicKey().Bytes()
+	bee.client.SetPrivateKey(bee.adminPrivKey)
+
+	// var pubKeyStr = hex.EncodeToString(pubBytes)
+	// args := []*pb.Arg{
+	// 	rpcx.String(""),                  //validators
+	// 	rpcx.Int32(0),                    //consensus_type
+	// 	rpcx.String(chainType),           //chain_type
+	// 	rpcx.String("AppChain"),          //name
+	// 	rpcx.String("Appchain for test"), //desc
+	// 	rpcx.String("1.8"),               //version
+	// 	rpcx.String(pubKeyStr),           //public key
+	// }
+	// receipt, err := bee.client.InvokeBVMContract(constant.AppchainMgrContractAddr.Address(), "Register", nil, args...)
+	// // res, err := bee.invokeContract(bee.adminFrom, constant.AppchainMgrContractAddr.Address(), atomic.LoadUint64(&bee.norMalSeqNo),
+	// // 	"Register", args...)
+
+	// // receipt, err := bee.invokeContract(bee.adminFrom, constant.AppchainMgrContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+	// // 	"Register", rpcx.String(validators), rpcx.Int32(1), rpcx.String(chainType),
+	// // 	rpcx.String("AppChain"), rpcx.String("desc"), rpcx.String("1.8"), rpcx.String(pubKeyStr))
+	// if err != nil {
+	// 	logger.Error("register appchain err: ", err)
+	// 	return err
+	// }
+	// // atomic.AddUint64(&bee.adminSeqNo, 1)
+
+	// appChain := &rpcx.Appchain{}
+	// err = json.Unmarshal(receipt.Ret, appChain)
+	// if err != nil {
+	// 	logger.Error("Unmarshal err: ", err)
+	// 	return err
+	// }
+	// // return appChain.ID
+	// relayrootID = appChain.ID
+	// if relayrootID == "" {
+	// 	return fmt.Errorf("nil relayrootID")
+	// }
+
+	args := []*pb.Arg{
+		rpcx.String(adminDID),
+	}
+	// res, err := bee.client.InvokeBVMContract(constant.MethodRegistryContractAddr.Address(), "Init", nil, args...)
+	bee.client.SetPrivateKey(bee.adminPrivKey)
+	res, err := bee.invokeContract(bee.adminFrom, constant.MethodRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+		"Init", args...)
+	if err != nil {
+		logger.Error("Init err: ", err)
+		return err
+	}
+	if res.Ret != nil {
+		fmt.Println("Init res.Ret: ", string(res.Ret))
+		return fmt.Errorf("Init res err: %s", string(res.Ret))
+	}
+
+	// args = []*pb.Arg{
+	// 	rpcx.String(adminDID),
+	// 	rpcx.String(rootMethod),
+	// 	rpcx.String(relayrootID),
+	// }
+	// // res, err = bee.client.InvokeBVMContract(constant.MethodRegistryContractAddr.Address(), "SetConvertMap", nil, args...)
+	// res, err = bee.invokeContract(bee.adminFrom, constant.MethodRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+	// 	"SetConvertMap", args...)
+	// if err != nil {
+	// 	return err
+	// }
+	// if res.Ret != nil {
+	// 	return fmt.Errorf("SetConvertMap with %s", string(res.Ret))
+	// }
+
+	// args = []*pb.Arg{
+	// 	rpcx.String(adminDID),
+	// 	rpcx.String(childMethod),
+	// }
+	// // res, err = bee.client.InvokeBVMContract(constant.MethodRegistryContractAddr.Address(), "AddChild", nil, args...)
+	// res, err = bee.invokeContract(bee.adminFrom, constant.MethodRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+	// 	"AddChild", args...)
+	// if err != nil {
+	// 	return err
+	// }
+	// if res.Ret != nil {
+	// 	return fmt.Errorf("AddChild res.Ret: %s", string(res.Ret))
+	// }
+
+	// args = []*pb.Arg{
+	// 	rpcx.String(adminDID),
+	// 	rpcx.String(childMethod),
+	// 	rpcx.String(relayAppID),
+	// }
+	// // res, err = bee.client.InvokeBVMContract(constant.MethodRegistryContractAddr.Address(), "SetConvertMap", nil, args...)
+	// res, err = bee.invokeContract(bee.adminFrom, constant.MethodRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+	// 	"SetConvertMap", args...)
+	// if err != nil {
+	// 	return err
+	// }
+	// if res.Ret != nil {
+	// 	return fmt.Errorf("SetConvertMap res.Ret: %s", string(res.Ret))
+	// }
+	return nil
+}
+
 func (bee *bee) invokeContract(from, to *types.Address, nonce uint64, method string, args ...*pb.Arg) (*pb.Receipt, error) {
 	pl := &pb.InvokePayload{
 		Method: method,
@@ -280,10 +405,11 @@ func (bee *bee) invokeContract(from, to *types.Address, nonce uint64, method str
 		Timestamp: time.Now().UnixNano(),
 	}
 
-	return bee.client.SendTransactionWithReceipt(tx, &rpcx.TransactOpts{
-		From:        from.String(),
-		NormalNonce: nonce,
-	})
+	return bee.client.SendTransactionWithReceipt(tx,
+		&rpcx.TransactOpts{
+			From:        from.String(),
+			NormalNonce: nonce,
+		})
 }
 
 func (bee *bee) sendTransferTx(to *types.Address, normalNo uint64) error {
@@ -343,6 +469,139 @@ func (bee *bee) sendInterchainTx(i uint64, ibtpNo uint64) error {
 	return nil
 }
 
+func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
+	atomic.AddInt64(&sender, 1)
+
+	atomic.AddInt64(&didcounter, 1)
+
+	// normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
+
+	docAddr := "/ipfs/QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi"
+	docHash := []byte("QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi")
+
+	// relayrootID := bee.RegisterAppchainWithReturn(bee.adminPrivKey, "relayroot", validators)
+	// relayrootID := ""
+	// relayAppID := "0x32a07E5dC7715Fc40A54e58DE0CE5303561517ad"
+	normalMethod := "did:bitxhub:appchain" + fmt.Sprint(didcounter) + ":."
+	normalDID := "did:bitxhub:appchain" + fmt.Sprint(didcounter) + ":" + fmt.Sprint(bee.normalFrom)
+	adminDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.adminFrom)
+	from := bee.adminFrom
+
+	sig := []byte{0}
+	args := []*pb.Arg{}
+
+	switch operation {
+	case "Apply":
+		args = []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(normalMethod),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "AuditApply":
+		args = []*pb.Arg{
+			rpcx.String(adminDID), // admin
+			rpcx.String(normalMethod),
+			rpcx.Int32(1), // rpcx.Bool(true),
+			rpcx.Bytes(sig),
+		}
+		from = bee.adminFrom
+		bee.client.SetPrivateKey(bee.adminPrivKey)
+	case "Register":
+		args = []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(normalMethod),
+			rpcx.String(docAddr),
+			rpcx.Bytes(docHash),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Update":
+		args = []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(normalMethod),
+			rpcx.String(docAddr),
+			rpcx.Bytes(docHash),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Resolve":
+		args = []*pb.Arg{
+			rpcx.String(normalMethod),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Freeze":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(normalMethod),
+			rpcx.Bytes(sig),
+		}
+		from = bee.adminFrom
+		bee.client.SetPrivateKey(bee.adminPrivKey)
+	case "UnFreeze":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(normalMethod),
+			rpcx.Bytes(sig),
+		}
+		from = bee.adminFrom
+		bee.client.SetPrivateKey(bee.adminPrivKey)
+	case "Delete":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(normalMethod),
+			rpcx.Bytes(sig),
+		}
+		from = bee.adminFrom
+		bee.client.SetPrivateKey(bee.adminPrivKey)
+
+	}
+
+	pl := &pb.InvokePayload{
+		Method: operation,
+		Args:   args,
+	}
+
+	data, err := pl.Marshal()
+	if err != nil {
+		return err
+	}
+
+	td := &pb.TransactionData{
+		Type:    pb.TransactionData_INVOKE,
+		VmType:  pb.TransactionData_BVM,
+		Payload: data,
+	}
+	payload, err := td.Marshal()
+	if err != nil {
+		return err
+	}
+
+	tx := &pb.Transaction{
+		From:      from, // from
+		To:        constant.MethodRegistryContractAddr.Address(),
+		Payload:   payload,
+		Timestamp: time.Now().UnixNano(),
+		Nonce:     normalNo,
+	}
+
+	txHash, err := bee.client.SendTransaction(tx, // nil)
+		&rpcx.TransactOpts{
+			NormalNonce: normalNo,
+		})
+	if err != nil {
+		return err
+	}
+	tx.TransactionHash = types.NewHashByStr(txHash)
+
+	go bee.counterReceipt(tx)
+	return nil
+}
+
 func prepareInterchainTx(proof []byte) {
 	if ibtppd != nil {
 		return
@@ -389,7 +648,7 @@ func (bee *bee) counterReceipt(tx *pb.Transaction) {
 			logger.Error(err)
 			return
 		}
-
+		_ = receipt
 		if !receipt.IsSuccess() {
 			logger.Error("receipt for tx %s is failed, error msg: %s", tx.TransactionHash.String(), string(receipt.Ret))
 			return
@@ -398,4 +657,62 @@ func (bee *bee) counterReceipt(tx *pb.Transaction) {
 	}
 	atomic.AddInt64(&delayer, time.Now().UnixNano()-tx.Timestamp)
 	atomic.AddInt64(&counter, 1)
+}
+
+func (bee *bee) constructTX(from, to *types.Address, method string, args ...*pb.Arg) (*pb.Transaction, error) {
+	pl := &pb.InvokePayload{
+		Method: method,
+		Args:   args[:],
+	}
+
+	data, err := pl.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	td := &pb.TransactionData{
+		Type:    pb.TransactionData_INVOKE,
+		VmType:  pb.TransactionData_BVM,
+		Payload: data,
+	}
+	payload, err := td.Marshal()
+
+	tx := &pb.Transaction{
+		From:      from,
+		To:        to,
+		Payload:   payload,
+		Timestamp: time.Now().UnixNano(),
+	}
+
+	return tx, nil
+}
+
+func (bee *bee) sendMethodTxOld(operation string, normalNo uint64) error {
+	atomic.AddInt64(&sender, 1)
+	normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
+	normalMethod := "did:bitxhub:appchain001:."
+	tx := &pb.Transaction{}
+	switch operation {
+	case "register":
+		args := []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(normalMethod),
+			rpcx.Bytes([]byte{0}),
+		}
+		tx, err := bee.constructTX(bee.normalFrom, constant.MethodRegistryContractAddr.Address(), "Apply", args...)
+		if err != nil {
+			return err
+		}
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+		txHash, err := bee.client.SendTransaction(tx, &rpcx.TransactOpts{
+			// From:        bee.normalFrom.String(),
+			NormalNonce: normalNo,
+		})
+		if err != nil {
+			return err
+		}
+		tx.TransactionHash = types.NewHashByStr(txHash)
+	}
+	go bee.counterReceipt(tx)
+	return nil
 }
