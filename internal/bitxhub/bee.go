@@ -133,8 +133,14 @@ func (bee *bee) sendTx(typ string, count, ibtpNo, normalNo uint64) error {
 		if err := bee.sendBVMTx(normalNo); err != nil {
 			return err
 		}
-	case "did":
+	case "method":
+		// Apply AuditApply Register Update Resolve Freeze Unfreeze Delete
 		if err := bee.sendMethodTx("Apply", normalNo); err != nil {
+			return err
+		}
+	case "did":
+		// Register Update Resolve Freeze Unfreeze Delete
+		if err := bee.sendDIDTx("Delete", normalNo); err != nil {
 			return err
 		}
 	case "transfer":
@@ -262,6 +268,47 @@ func (bee *bee) prepareChain(chainType, name, validators, version, desc string, 
 
 func (bee *bee) prepareDID(chainType, validators string) error {
 	adminDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.adminFrom)
+	normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
+
+	// docAddr := "/ipfs/QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi"
+	// docHash := []byte("QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi")
+
+	// normalMethod := "did:bitxhub:appchain001:."
+	rootMethod := "did:bitxhub:relayroot:."
+	childMethod := "did:bitxhub:relaychain001:."
+
+	// relayrootID := bee.RegisterAppchainWithReturn(bee.adminPrivKey, "relayroot", validators)
+	relayrootID := ""
+	relayAppID := "0x32a07E5dC7715Fc40A54e58DE0CE5303561517ad"
+	_ = relayrootID
+	_ = adminDID
+	_ = rootMethod
+	_ = childMethod
+	_ = relayAppID
+	_ = normalDID
+
+	// pubBytes, _ := bee.adminPrivKey.PublicKey().Bytes()
+	bee.client.SetPrivateKey(bee.adminPrivKey)
+
+	args := []*pb.Arg{
+		rpcx.String(adminDID),
+	}
+	bee.client.SetPrivateKey(bee.adminPrivKey)
+	res, err := bee.invokeContract(bee.adminFrom, constant.DIDRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
+		"Init", args...)
+	if err != nil {
+		logger.Error("DID Init err: ", err)
+		return err
+	}
+	if res.Ret != nil {
+		fmt.Println("Init res.Ret: ", string(res.Ret))
+		return fmt.Errorf("Init res err: %s", string(res.Ret))
+	}
+	return nil
+}
+
+func (bee *bee) prepareMethod(chainType, validators string) error {
+	adminDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.adminFrom)
 	// normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
 
 	// docAddr := "/ipfs/QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi"
@@ -326,7 +373,7 @@ func (bee *bee) prepareDID(chainType, validators string) error {
 	res, err := bee.invokeContract(bee.adminFrom, constant.MethodRegistryContractAddr.Address(), atomic.LoadUint64(&bee.adminSeqNo),
 		"Init", args...)
 	if err != nil {
-		logger.Error("Init err: ", err)
+		logger.Error("Method Init err: ", err)
 		return err
 	}
 	if res.Ret != nil {
@@ -469,6 +516,114 @@ func (bee *bee) sendInterchainTx(i uint64, ibtpNo uint64) error {
 	return nil
 }
 
+func (bee *bee) sendDIDTx(operation string, normalNo uint64) error {
+	atomic.AddInt64(&sender, 1)
+
+	docAddr := "/ipfs/QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi"
+	docHash := []byte("QmQVxzUqN2Yv2UHUQXYwH8dSNkM8ReJ9qPqwJsf8zzoNUi")
+
+	normalDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.normalFrom)
+	adminDID := "did:bitxhub:relayroot:" + "0x00000001" // fmt.Sprint(bee.adminFrom)
+	_ = adminDID
+	adminMethod := "did:bitxhub:relayroot:."
+	_ = adminMethod
+	from := bee.adminFrom
+
+	sig := []byte{0}
+	args := []*pb.Arg{}
+
+	switch operation {
+	case "Register":
+		args = []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(docAddr),
+			rpcx.Bytes(docHash),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Update":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(docAddr),
+			rpcx.Bytes(docHash),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Resolve":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Freeze":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(adminDID),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "UnFreeze":
+		args = []*pb.Arg{
+			rpcx.String(adminDID),
+			rpcx.String(adminDID),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+	case "Delete":
+		args = []*pb.Arg{
+			rpcx.String(normalDID),
+			rpcx.String(normalDID),
+			rpcx.Bytes(sig),
+		}
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
+
+	}
+
+	pl := &pb.InvokePayload{
+		Method: operation,
+		Args:   args,
+	}
+
+	data, err := pl.Marshal()
+	if err != nil {
+		return err
+	}
+
+	td := &pb.TransactionData{
+		Type:    pb.TransactionData_INVOKE,
+		VmType:  pb.TransactionData_BVM,
+		Payload: data,
+	}
+	payload, err := td.Marshal()
+	if err != nil {
+		return err
+	}
+
+	tx := &pb.Transaction{
+		From:      from, // from
+		To:        constant.DIDRegistryContractAddr.Address(),
+		Payload:   payload,
+		Timestamp: time.Now().UnixNano(),
+		Nonce:     normalNo,
+	}
+
+	txHash, err := bee.client.SendTransaction(tx, &rpcx.TransactOpts{
+		NormalNonce: normalNo,
+	})
+	if err != nil {
+		return err
+	}
+	tx.TransactionHash = types.NewHashByStr(txHash)
+
+	go bee.counterReceipt(tx)
+	return nil
+}
+
 func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
 	atomic.AddInt64(&sender, 1)
 
@@ -482,9 +637,11 @@ func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
 	// relayrootID := bee.RegisterAppchainWithReturn(bee.adminPrivKey, "relayroot", validators)
 	// relayrootID := ""
 	// relayAppID := "0x32a07E5dC7715Fc40A54e58DE0CE5303561517ad"
-	normalMethod := "did:bitxhub:appchain" + fmt.Sprint(didcounter) + ":."
-	normalDID := "did:bitxhub:appchain" + fmt.Sprint(didcounter) + ":" + fmt.Sprint(bee.normalFrom)
+	normalMethod := "did:bitxhub:appchain001:."
+	normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
 	adminDID := "did:bitxhub:relayroot:" + fmt.Sprint(bee.adminFrom)
+	_ = adminDID
+	adminMethod := "did:bitxhub:relayroot:."
 	from := bee.adminFrom
 
 	sig := []byte{0}
@@ -501,17 +658,17 @@ func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
 		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "AuditApply":
 		args = []*pb.Arg{
-			rpcx.String(adminDID), // admin
-			rpcx.String(normalMethod),
+			rpcx.String(normalDID), // admin
+			rpcx.String(adminMethod),
 			rpcx.Int32(1), // rpcx.Bool(true),
 			rpcx.Bytes(sig),
 		}
-		from = bee.adminFrom
-		bee.client.SetPrivateKey(bee.adminPrivKey)
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "Register":
 		args = []*pb.Arg{
 			rpcx.String(normalDID),
-			rpcx.String(normalMethod),
+			rpcx.String(adminMethod),
 			rpcx.String(docAddr),
 			rpcx.Bytes(docHash),
 			rpcx.Bytes(sig),
@@ -521,7 +678,7 @@ func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
 	case "Update":
 		args = []*pb.Arg{
 			rpcx.String(normalDID),
-			rpcx.String(normalMethod),
+			rpcx.String(adminMethod),
 			rpcx.String(docAddr),
 			rpcx.Bytes(docHash),
 			rpcx.Bytes(sig),
@@ -530,34 +687,34 @@ func (bee *bee) sendMethodTx(operation string, normalNo uint64) error {
 		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "Resolve":
 		args = []*pb.Arg{
-			rpcx.String(normalMethod),
+			rpcx.String(adminMethod),
 		}
 		from = bee.normalFrom
 		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "Freeze":
 		args = []*pb.Arg{
-			rpcx.String(adminDID),
-			rpcx.String(normalMethod),
+			rpcx.String(normalDID),
+			rpcx.String(adminMethod),
 			rpcx.Bytes(sig),
 		}
-		from = bee.adminFrom
-		bee.client.SetPrivateKey(bee.adminPrivKey)
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "UnFreeze":
 		args = []*pb.Arg{
-			rpcx.String(adminDID),
-			rpcx.String(normalMethod),
+			rpcx.String(normalDID),
+			rpcx.String(adminMethod),
 			rpcx.Bytes(sig),
 		}
-		from = bee.adminFrom
-		bee.client.SetPrivateKey(bee.adminPrivKey)
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
 	case "Delete":
 		args = []*pb.Arg{
-			rpcx.String(adminDID),
-			rpcx.String(normalMethod),
+			rpcx.String(normalDID),
+			rpcx.String(adminMethod),
 			rpcx.Bytes(sig),
 		}
-		from = bee.adminFrom
-		bee.client.SetPrivateKey(bee.adminPrivKey)
+		from = bee.normalFrom
+		bee.client.SetPrivateKey(bee.normalPrivKey)
 
 	}
 
@@ -657,62 +814,4 @@ func (bee *bee) counterReceipt(tx *pb.Transaction) {
 	}
 	atomic.AddInt64(&delayer, time.Now().UnixNano()-tx.Timestamp)
 	atomic.AddInt64(&counter, 1)
-}
-
-func (bee *bee) constructTX(from, to *types.Address, method string, args ...*pb.Arg) (*pb.Transaction, error) {
-	pl := &pb.InvokePayload{
-		Method: method,
-		Args:   args[:],
-	}
-
-	data, err := pl.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	td := &pb.TransactionData{
-		Type:    pb.TransactionData_INVOKE,
-		VmType:  pb.TransactionData_BVM,
-		Payload: data,
-	}
-	payload, err := td.Marshal()
-
-	tx := &pb.Transaction{
-		From:      from,
-		To:        to,
-		Payload:   payload,
-		Timestamp: time.Now().UnixNano(),
-	}
-
-	return tx, nil
-}
-
-func (bee *bee) sendMethodTxOld(operation string, normalNo uint64) error {
-	atomic.AddInt64(&sender, 1)
-	normalDID := "did:bitxhub:appchain001:" + fmt.Sprint(bee.normalFrom)
-	normalMethod := "did:bitxhub:appchain001:."
-	tx := &pb.Transaction{}
-	switch operation {
-	case "register":
-		args := []*pb.Arg{
-			rpcx.String(normalDID),
-			rpcx.String(normalMethod),
-			rpcx.Bytes([]byte{0}),
-		}
-		tx, err := bee.constructTX(bee.normalFrom, constant.MethodRegistryContractAddr.Address(), "Apply", args...)
-		if err != nil {
-			return err
-		}
-		bee.client.SetPrivateKey(bee.normalPrivKey)
-		txHash, err := bee.client.SendTransaction(tx, &rpcx.TransactOpts{
-			// From:        bee.normalFrom.String(),
-			NormalNonce: normalNo,
-		})
-		if err != nil {
-			return err
-		}
-		tx.TransactionHash = types.NewHashByStr(txHash)
-	}
-	go bee.counterReceipt(tx)
-	return nil
 }
